@@ -3,7 +3,7 @@ const config = {
     container : `body`,
     tile:32,
     aspect:1,
-    framerate:1/5,
+    framerate:1/15,
     ignoreSpritesheet : true,
     width : parseInt(window.innerWidth)*.92,
     height : parseInt(window.innerHeight)*.92

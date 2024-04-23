@@ -1,10 +1,20 @@
 *{
     border-collapse:collapse;
     box-sizing:border-box;
+    color:#fff;
+    color:#f5f4f4;
+    color:azure;
+    color:gold;
+    color:violet;
+    color:chocolate;
+    color:crimson;
+    color:#bbbbbb;
+    
 }
 
 body {
     user-select: none;
+    overflow: hidden;
     /* padding: 20px; */
 }
 .Container {
