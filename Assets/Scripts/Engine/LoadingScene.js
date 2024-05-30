@@ -80,6 +80,7 @@ export default class LoadingScene extends Scene{
         super(main);
         this.initialized = false;
         this.loading = true;
+        // this.load();
         this.preload();
     }
     preload(){
@@ -97,6 +98,7 @@ export default class LoadingScene extends Scene{
         this.loadingY = 0;
         this.factorX = Math.ceil(this.canvas.width / this.dim1);
         this.factorY = Math.ceil(this.canvas.height / this.dim1);
+        this.load();
     }
     load(){
         gf.loadImage(Url_Battery,"",(batterydata)=>{

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BPAL Game</title>
+</head>
+<body>
+    <script>
+        const makeCanvas = (w=0,h=0) => {
+            let c = document.createElement('canvas');
+            c.width = w;
+            c.height = h;
+            c.ctx = c.getContext('2d');
+            return c;
+        }
+        const getCtx = (canvas) => {
+            return canvas.getContext('2d');
+        }
+        const drawOnCanvas = (canvas,img,x=0,y=0)=>{
+            getCtx(canvas).drawImage(img,x,y);
+        }
+        const loadImage = (url,attr,callback)=>{
+            var img = new Image();
+            img.src = url;
+            if(attr) {
+                for(let i in attr){
+                    img[i] = attr[i];
+                }
+            }
+            img.addEventListener('load',()=>{
+                callback(img);
+            });
+        }
+        const crop = (canvas,x,y,width,height)=>{
+            let buffer = makeCanvas(width,height);
+            let context = getCtx(buffer);
+            context.drawImage(
+                canvas,
+                x,
+                y,
+                width,
+                height,
+                0,
+                0,
+                width,
+                height);
+            return buffer;
+        }
+        const gridBG = (scale = 8)=>{
+            var canvas = makeCanvas(scale,scale);
+            var ctx = canvas.getContext('2d');
+            ctx.fillStyle = "lightgrey";
+            ctx.fillRect(0,0,scale,scale);
+            ctx.clearRect(0,0,scale-1,scale-1);
+            const base64Image = canvas.toDataURL();
+            document.body.style.backgroundImage = `url(${base64Image})`;
+        }
+        const getColor = (r, g, b, a)=> {
+            if(r+g+b+a == 0){
+                return null;
+            }
+            else if(r+g+b == 0){
+                return '#000000';
+            }
+            else if (r > 255 || g > 255 || b > 255){
+                return '#000000';
+            }
+            return '#' + ((r << 16) + (g << 8) + b).toString(16).padStart(6, '0');
+        }
+        const getColorMatrix = (canvas,changefct)=>{
+            var context = getCtx(canvas);
+            var width = canvas.width;
+            var height = canvas.height;
+            var imageData = context.getImageData(0, 0, width, height);
+            var data = imageData.data;
+            var colorMatrix = [];
+            for (var i = 0; i < data.length; i += 4) {
+                colorMatrix.push(
+                    getColor(
+                        data[i],
+                        data[i + 1],
+                        data[i + 2],
+                        data[i + 3]
+                        )
+                    );
+            }
+            var matrix = [];
+            for(let i = 0 ; i < canvas.height;i++){matrix[i] = [];}
+            let c = 0, r = 0;
+            for(let i = 0 ; i < colorMatrix.length;i++){
+                if(c >= canvas.width){r++;c=0}
+                matrix[r][c] = colorMatrix[i];
+
+                // if(r >= canvas.height) {c++;r = 0;}
+                // matrix[r][c] = colorMatrix[i];
+                
+                
+                if(changefct) matrix[r][c] = changefct(matrix[r][c]);
+                // r++;
+                c++;
+            }
+            return matrix;
+        }
+        const printRotated =(canvas,ctx,image,degree,x,y)=>{
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(degree); // degree degrees in radians Math.PI / 4 = 45
+            // ctx.rotate(Math.PI / 4); // 45 degrees in radians
+            ctx.translate(-canvas.width / 2, -canvas.height / 2);
+            ctx.drawImage(image,x,y);
+            ctx.restore();
+        }
+        class SE{
+            static rotateCW(image,times,passed = 0){
+                if(times >= 8) times -= 8;
+                if(times <= 0 || times >= 8) {
+                    return image;
+                }
+                if(times < 0) times += 8;
+                if(passed==0 && times%2 != 0){
+                    image = this.prepForRotate(image);
+                }
+                let buffer = makeCanvas(image.width,image.height);
+                let context = getCtx(buffer);
+                if(times % 2 == 0){
+                    context.setTransform(0,1,-1,0,image.width,0);
+                    context.drawImage(image,0,0);
+                    context.setTransform(1,0,0,1,0,0);
+                    return this.rotateCW(buffer,times-2,passed+2);
+                }
+                else{
+                    context.rotate(Math.PI/4);
+                    context.drawImage(image,image.width/4,-image.height/2);
+                    return this.rotateCW(buffer,times-1,passed++);
+                }
+            }
+            static prepForRotate(image){
+                let d = Math.sqrt(image.width*image.width+image.height*image.height);
+                let buffer = makeCanvas(d,d);
+                let context = getCtx(buffer);
+                context.drawImage(image,
+                    (d - image.width) /2,
+                    (d - image.height) /2
+                );
+                return buffer;
+            }
+        }
+        class Game{
+            constructor(selector = "body"){
+                this.container = document.querySelector(selector);
+                this.canvas = makeCanvas(600,200);
+                this.ctx = this.canvas.getContext('2d');
+                this.container.append(this.canvas);
+                this.loadAssets();
+                document.addEventListener('keydown',(e)=>{
+                    if(e.code == 'Space' && this.velocity == null){
+                        this.velocity = 1;
+                    }
+                    if(e.code == 'Space' && this.gameover == true){
+                        this.resetGame();
+                    }
+                })
+            }
+            loadAssets(){
+                loadImage("https://bpal-web-mm-saas-qa.montylocal.net/Content/images/logo-billing.png","",(img)=>{
+                    var w = img.width;
+                    var h = img.height
+                    var ar = w / h;
+                    var nh = 64;
+                    var nw = nh * ar;
+                    var canvas = makeCanvas(nw,nh);
+                    getCtx(canvas).drawImage(img,0,0,nw,nh);
+                    var bcanv = crop(canvas,18,8,46,44);
+                    this.logoImg = canvas;
+                    this.playerImg = bcanv;
+                    this.initGame();
+                });
+            }
+            genLevel(starting = 5, countPLevel = 150){
+                var probGap = 0.4;
+                var GapNext = 0.05;
+                var countBLevel = countPLevel;
+                var levelArray = [];
+                for(let i = 0 ; i < starting ;i++){
+                    levelArray.push('f');
+                }
+                for(let i = starting ; i < countBLevel - starting;i++){
+                    if(levelArray[i-1] == 'g'){
+                        probGap -= GapNext;
+                        GapNext += GapNext;
+                        probGap=0;
+                    }
+                    var next = Math.random() > (1-probGap) ? 'g':'f';
+                    if(next == 'f') {
+                        probGap = 0.4;
+                        GapNext = 0.05;
+                    }
+                    levelArray.push(next);
+                }
+                for(let i = countBLevel - starting ; i < countBLevel ;i++){
+                    levelArray.push('f');
+                }
+                return levelArray;
+            }
+            genLevelCanvas(levelarray,width){
+                var block = makeCanvas(width,32);
+                var cx1 = getCtx(block);
+                cx1.fillStyle = "green";
+                cx1.fillRect(0,0,width,8);
+                cx1.fillStyle = "brown";
+                cx1.fillRect(0,8,width,24);
+                var canvas = makeCanvas(levelarray.length * width,32);
+                var ctx = getCtx(canvas);
+                ctx.fillStyle = "green";
+                for(let i = 0 ; i < levelarray.length;i++){
+                    if(levelarray[i] == 'f'){
+                        ctx.drawImage(block,width*i,0,width,32)
+                    }
+                }
+                return canvas;
+            }
+            resetGame(){
+                this.initGame();
+            }
+            initGame(){
+                this.level = this.genLevel(8);
+                this.levelCanvas = this.genLevelCanvas(this.level,this.playerImg.width*1.5);
+                this.currentY = this.canvas.height - this.levelCanvas.height - this.playerImg.height;
+                this.minY = this.canvas.height - this.levelCanvas.height - this.playerImg.height;
+                this.currentX = 0;
+                this.score = 0;
+                this.rotation = 0;
+                this.velocityX = 1;
+                this.gameover = false;
+                this.update(0);
+            }
+            checkJump(g){
+                if(this.velocity != null){
+                    this.currentY -= this.velocity * 2;
+                    this.velocity-= 0.03;
+                    this.rotation += 0.1;
+                }
+                else if(g){
+                    this.velocityX = 0;
+                    this.velocity = -1;
+                }
+                if(!g && this.currentY > this.minY){
+                    this.currentY = this.minY;
+                    this.rotation = 0;
+                    this.velocity = null;
+                }
+            }
+            checkGap(){
+                var c = crop(this.levelCanvas,this.currentX+this.playerImg.width/2,0,this.playerImg.width,1);
+                var matrix = getColorMatrix(c)[0];
+                return matrix.filter(x=>x != null).length == 0;
+            }
+            increaseSpeed(){
+                if(this.currentX % 1000 == 0){
+                    this.velocityX++;
+                }
+            }
+            update(time) {
+                if(this.gameover){
+                    this.ctx.font = "bold 48px serif";
+                    this.ctx.fillText(`GAME OVER`,80,40);
+                    this.ctx.fillText(`SCORE ${this.score}`,80,80);
+                    this.ctx.drawImage(this.logoImg,70,100);
+                    return;
+                }
+                this.increaseSpeed();
+                this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+                this.currentX += this.velocityX;
+                this.score += this.velocityX;
+                var g = this.checkGap();
+                this.checkJump(g);
+                if(this.currentY > this.canvas.height){
+                    this.gameover = true;
+                }
+                this.ctx.drawImage(
+                    this.levelCanvas,
+                    this.currentX,
+                    0,
+                    this.canvas.width,
+                    this.levelCanvas.height,
+                    0,
+                    this.canvas.height - this.levelCanvas.height,
+                    this.canvas.width,
+                    this.levelCanvas.height
+                );
+                this.ctx.drawImage(SE.rotateCW(this.playerImg,parseInt(this.rotation)),this.playerImg.width/2,this.currentY);
+                if(this.currentX >= this.levelCanvas.width - this.canvas.width){
+                    this.currentX = 0;
+                    this.level = this.genLevel(10);
+                    this.levelCanvas = this.genLevelCanvas(this.level,this.playerImg.width*1.5);
+                }
+                requestAnimationFrame((t)=>{
+                    this.update(t);
+                })
+            }
+        }
+        window.game = new Game();
+    </script>
+</body>
+</html>
