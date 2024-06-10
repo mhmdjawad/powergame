@@ -420,6 +420,8 @@ class LetterByLetter{
     constructor(container){
         var c = document.querySelector(container);
         var src = c.querySelector(`img`).src;
+        this.objects = [];
+        this.handleMouseMove();
         loadImage(src,"",(img)=>{
             this.init(c,img);
         });
@@ -441,25 +443,19 @@ class LetterByLetter{
         var Letter_A = crop(resizedImage,167,12,56,52);
         var Letter_L = crop(resizedImage,225,12,56,52);
         c.innerHTML = ``;
-        this.objects = [];
+        
         var wait = 0;
-        var waitincrement = 900;
-        this.objects.push(new MouseFollowingObject(Letter_B,wait,{x:0,y:0})); wait+= waitincrement;
-        this.objects.push(new MouseFollowingObject(Letter_P,wait,{x:0,y:0})); wait+= waitincrement;
-        this.objects.push(new MouseFollowingObject(Letter_A,wait,{x:0,y:0})); wait+= waitincrement;
-        this.objects.push(new MouseFollowingObject(Letter_L,wait,{x:0,y:0})); wait+= waitincrement;
-        this.objects.push(new MouseFollowingObject(Letter_B,wait,{x:0,y:0})); wait+= waitincrement;
-        this.objects.push(new MouseFollowingObject(Letter_P,wait,{x:0,y:0})); wait+= waitincrement;
-        this.objects.push(new MouseFollowingObject(Letter_A,wait,{x:0,y:0})); wait+= waitincrement;
-        this.objects.push(new MouseFollowingObject(Letter_L,wait,{x:0,y:0})); wait+= waitincrement;
-        this.objects.push(new MouseFollowingObject(Letter_B,wait,{x:0,y:0})); wait+= waitincrement;
-        this.objects.push(new MouseFollowingObject(Letter_P,wait,{x:0,y:0})); wait+= waitincrement;
-        this.objects.push(new MouseFollowingObject(Letter_A,wait,{x:0,y:0})); wait+= waitincrement;
-        this.objects.push(new MouseFollowingObject(Letter_L,wait,{x:0,y:0})); wait+= waitincrement;
+        var waitincrement = 520;
+
+        for(let i = 0 ; i < 20;i++){
+            this.objects.push(new MouseFollowingObject(Letter_B,wait,this.currentMousePos)); wait+= waitincrement;
+            this.objects.push(new MouseFollowingObject(Letter_P,wait,this.currentMousePos)); wait+= waitincrement;
+            this.objects.push(new MouseFollowingObject(Letter_A,wait,this.currentMousePos)); wait+= waitincrement;
+            this.objects.push(new MouseFollowingObject(Letter_L,wait,this.currentMousePos)); wait+= waitincrement;
+        }
         this.canvas = makeCanvas(window.innerWidth-20,window.innerHeight-20);
         this.ctx = getCtx(this.canvas);
         document.body.append(this.canvas);
-        this.handleMouseMove();
         this.update(0);
     }
     update(time){
