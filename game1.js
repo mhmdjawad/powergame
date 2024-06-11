@@ -62,6 +62,22 @@ class G{
         // const base64Image = canvas.toDataURL();
         // document.body.style.backgroundImage = `url(${base64Image})`;
     }
+    static brickPattern(color1 = "#fff",color2 = "#000"){
+        var canvas = G.makeCanvas(8,8);
+        var ctx = canvas.ctx;
+
+        ctx.fillStyle = color1;
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+
+        ctx.fillStyle = color2;
+
+        ctx.fillRect(7,0,1,4);
+        ctx.fillRect(0,3,8,1);
+        ctx.fillRect(4,4,1,4);
+        ctx.fillRect(0,7,8,1);
+
+        return canvas;
+    }
     static gridToFull(c,w,h,border = null, bg=null){
         var b = G.makeCanvas(w,h);
         var cw = c.width;
@@ -115,8 +131,12 @@ class DOM{
         h.innerHTML = html;
         return h.firstChild;
     }
-
 }
+const color1 = `#0db2b224`;
+const color2 = `#000`; // main text color #092046
+const color3 = `#fff`;    // secondary text color
+const color4 = `#0db2b245`; //circle color
+const color5 = `#000`; //canvas border
 class AnimatedTile{
     constructor(w,h,c,value){
         this.value = value;
@@ -130,19 +150,19 @@ class AnimatedTile{
             for(let j = 0 ; j < c/2 ; j++){
                 cx = i * w/c + j * 2 * w/c;
                 vx *= -1;
-                var p = this.particle(cx, cy,vx,-0.3);
+                var p = this.particle(cx, cy,vx,-0.2);
                 this.particles.push(p);
             }
         }
-        this.bgimage = G.gridBG("#0db2b224",null,2,1);
-        this.bgimage = G.gridToFull(this.bgimage,w,h,"#0db2b2f5");
-        var s1 = G.getFontSprite(value,"50","#092046",null,"Comic Sans MS",0,h);
-        var s2 = G.getFontSprite(value,"50","#000",null,"Comic Sans MS",0,h);
+        // this.bgimage = G.gridBG(color1,null,4,1);
+        this.bgimage = G.brickPattern(color1,'#0000015');
+        this.bgimage = G.gridToFull(this.bgimage,w,h,color1);
+        var s1 = G.getFontSprite(value,"50",color2,null,"Comic Sans MS",0,h);
+        var s2 = G.getFontSprite(value,"50",color3,null,"Comic Sans MS",0,h);
         var c2 = G.makeCanvas(w,h);
-        c2.ctx.drawImage(s2,c2.width/2 - s2.width/2,c2.height/2 - s2.height/2);
-        c2.ctx.drawImage(s1,c2.width/2 - s1.width/2 - 1,c2.height/2 - s1.height/2 - 1);
+        c2.ctx.drawImage(s2, 3 + c2.width/2 - s2.width/2,       3 + c2.height/2 - s2.height/2);
+        c2.ctx.drawImage(s1, 3 + c2.width/2 - s1.width/2 - 2,   3 + c2.height/2 - s1.height/2 - 2);
         this.ValueSprite = c2;
-        // document.body.append(this.canvas);
         this.update(0);
     }
     circle(r,stroke = null,fill = null){
@@ -150,16 +170,13 @@ class AnimatedTile{
         var ctx = s.ctx;
         ctx.beginPath();
         ctx.arc(s.width/2,s.height/2,r,0,Math.PI * 2,false);
-        //outline
-        if(stroke){ctx.strokeStyle = stroke;ctx.stroke();
-        }
-        //fill
+        if(stroke){ctx.strokeStyle = stroke;ctx.stroke();}
         if(fill != null){ctx.fillStyle = fill;ctx.fill();}
         return s;
     }
     particle(x,y,vx,vy){
         var p = {
-            sprite : this.circle(4,"#0db2b245"),
+            sprite : this.circle(G.randInt(3,6),color4),
             ix : x,
             iy : y,
             cx : x,
@@ -180,7 +197,6 @@ class AnimatedTile{
         });
         this.canvas.ctx.drawImage(this.bgimage,0,0);
         this.canvas.ctx.drawImage(this.ValueSprite,0,0);
-
         requestAnimationFrame((t)=>this.update(t));
     }
     draw(ctx,x,y){
@@ -193,10 +209,7 @@ class Game1{
         this.windowresize();
         this.prepGame();
     }
-    evalAR(){
-        var winH = window.innerHeight;
-        var winW = window.innerWidth;
-        console.log(`H : ${winH}, W : ${winW}, H/W : ${winH/winW},  W/H : ${winW/winH}`);
+    getColorPalette(){
     }
     getScoreBoard(){
         var html = `<table class=sboard ><tr><td>Time</td><td>Moves</td></tr></tr><td id=stime>0</td><td id=smoves >0</td></tr></table>`;
@@ -208,7 +221,7 @@ class Game1{
         var canvasW = 64*4+5*2;
         var canvasH = 64*4+5*2;
         this.canvas = G.makeCanvas(canvasW,canvasH);
-        this.canvas.style.border = "1px solid #000";
+        this.canvas.style.border = "1px solid " + color5;
         this.ctx = this.canvas.getContext('2d');
         document.body.innerHTML = ``;
         this.layout = DOM.makeDom(`<div id=game><div id=sboard></div><div id=cbody ></div></div>`);
@@ -253,11 +266,9 @@ class Game1{
                     this.checkGameOver();
                 }
             }
-
         });
     }
     update(time){
-
         this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
         // this.ctx.font = "15px"
         // this.ctx.fillText(`time : ${this.timeToHMS(time/100)}`, 10,10);
@@ -357,4 +368,6 @@ class Game1{
 }
 document.addEventListener('DOMContentLoaded', function () {
     window.game = new Game1(".logo");
+//    var b = G.brickPattern(color1,'#000');
+//    document.body.append(b);
 }, false);
