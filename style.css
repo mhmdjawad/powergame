@@ -1,0 +1,36 @@
+body, html {
+    height: 100%;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#sboard{
+    font-weight:bold;
+    background:linear-gradient(#fff,#ddf4f4);
+}
+#game{
+    position: absolute;
+    top:20%;
+    text-align: center;
+}
+#gameover{
+    width: 300px;
+    font-weight: bold;
+    border: 2px dashed gainsboro;
+    border-radius: 20px;
+    padding: 20px;
+    text-align:center;
+}
+#gameover table{
+    text-align:center;
+    width:100%;
+}
+#gameover #newgame{
+    border:none;
+    border-radius:10%;
+    padding:4px 10px 4px 10px;
+    background:linear-gradient(#fff0f0,#bfffbfbf);
+    color:#0d6311;
+    font-weight:bold;
+}

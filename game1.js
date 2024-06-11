@@ -100,6 +100,23 @@ class G{
         return array;
     }
 }
+class DOM{
+    static div(){
+        return document.createElement('div');
+    }
+    static td(){
+        return document.createElement('td');
+    }
+    static tr(tds){
+        return document.createElement('tr');
+    }
+    static makeDom(html){
+        var h = DOM.div();
+        h.innerHTML = html;
+        return h.firstChild;
+    }
+
+}
 class AnimatedTile{
     constructor(w,h,c,value){
         this.value = value;
@@ -117,13 +134,13 @@ class AnimatedTile{
                 this.particles.push(p);
             }
         }
-        this.bgimage = G.gridBG("#0db2b224",null,4,1);
+        this.bgimage = G.gridBG("#0db2b224",null,2,1);
         this.bgimage = G.gridToFull(this.bgimage,w,h,"#0db2b2f5");
-        var s1 = G.getFontSprite(value,"50","#092046",null,"Comic Sans MS",0,64);
-        var s2 = G.getFontSprite(value,"50","green",null,"Comic Sans MS",0,64);
-        var c2 = G.makeCanvas(64,64);
+        var s1 = G.getFontSprite(value,"50","#092046",null,"Comic Sans MS",0,h);
+        var s2 = G.getFontSprite(value,"50","#000",null,"Comic Sans MS",0,h);
+        var c2 = G.makeCanvas(w,h);
         c2.ctx.drawImage(s2,c2.width/2 - s2.width/2,c2.height/2 - s2.height/2);
-        c2.ctx.drawImage(s1,c2.width/2 - s1.width/2 - 2,c2.height/2 - s1.height/2 - 2);
+        c2.ctx.drawImage(s1,c2.width/2 - s1.width/2 - 1,c2.height/2 - s1.height/2 - 1);
         this.ValueSprite = c2;
         // document.body.append(this.canvas);
         this.update(0);
@@ -172,7 +189,8 @@ class AnimatedTile{
 }
 class Game1{
     constructor(container){
-        window.onresize = ()=>{this.windowresize();};this.windowresize();
+        // window.onresize = ()=>{this.windowresize();};
+        this.windowresize();
         this.prepGame();
     }
     evalAR(){
@@ -180,23 +198,86 @@ class Game1{
         var winW = window.innerWidth;
         console.log(`H : ${winH}, W : ${winW}, H/W : ${winH/winW},  W/H : ${winW/winH}`);
     }
+    getScoreBoard(){
+        var html = `<table class=sboard ><tr><td>Time</td><td>Moves</td></tr></tr><td id=stime>0</td><td id=smoves >0</td></tr></table>`;
+        var table = DOM.makeDom(html);
+        table.style.width = 64*4+5*2 + "px";
+        return table;
+    }
     windowresize(){
-        var canvasW = 64*4+8;
-        var canvasH = 64*4+8;
+        var canvasW = 64*4+5*2;
+        var canvasH = 64*4+5*2;
         this.canvas = G.makeCanvas(canvasW,canvasH);
-        this.canvas.style.border = "1px solid black";
+        this.canvas.style.border = "1px solid #000";
         this.ctx = this.canvas.getContext('2d');
         document.body.innerHTML = ``;
-        document.body.append(this.canvas);
+        this.layout = DOM.makeDom(`<div id=game><div id=sboard></div><div id=cbody ></div></div>`);
+        this.scoreboard = this.getScoreBoard();
+        this.layout.querySelector('#sboard').append(this.scoreboard);
+        this.layout.querySelector('#cbody').append(this.canvas);
+        document.body.append(this.layout);
+        this.mousepos = {x:0,y:0};
+        this.handleClickOnCanvas();
+    }
+    handleClickOnCanvas(){
+        this.canvas.addEventListener('click',(e)=>{
+            var rect = this.canvas.getBoundingClientRect();
+            var x = e.clientX - rect.left + window.scrollX;
+            var y = e.clientY - rect.top + window.scrollY;
+            var j = Math.floor(x / 66);
+            var i = Math.floor(y / 66);
+            var tile = this.tilesMap[i][j];
+            if(tile != null){
+                if(i > 0 && this.tilesMap[i-1][j] == null){ 
+                    this.tilesMap[i-1][j] = tile;
+                    this.tilesMap[i][j] = null;
+                    this.moves++;
+                    this.checkGameOver();
+                }
+                else if(j > 0 && this.tilesMap[i][j-1] == null){ 
+                    this.tilesMap[i][j-1] = tile;
+                    this.tilesMap[i][j] = null;
+                    this.moves++;
+                    this.checkGameOver();
+                }
+                else if(i < 3 && this.tilesMap[i+1][j] == null){ 
+                    this.tilesMap[i+1][j] = tile;
+                    this.tilesMap[i][j] = null;
+                    this.moves++;
+                    this.checkGameOver();
+                }
+                else if(j < 3 && this.tilesMap[i][j+1] == null){ 
+                    this.tilesMap[i][j+1] = tile;
+                    this.tilesMap[i][j] = null;
+                    this.moves++;
+                    this.checkGameOver();
+                }
+            }
+
+        });
     }
     update(time){
 
         this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
         // this.ctx.font = "15px"
         // this.ctx.fillText(`time : ${this.timeToHMS(time/100)}`, 10,10);
-        this.tiles.forEach(x=>{
-            x.draw(this.ctx, x.cx, x.cy);
-        });
+        var cx = 2;
+        var cy = 2;
+        for(let i = 0 ; i < this.tilesMap.length;i++){
+            cx = 2
+            for(let j = 0 ; j < this.tilesMap[i].length;j++){
+                var t = this.tilesMap[i][j];
+                if(t != null){
+                    t.draw(this.ctx, cx, cy);
+                }
+                cx += 64+2;
+            }
+            cy += 64+2;
+        }
+        this.time=time;
+        this.scoreboard.querySelector('#stime').innerText = this.timeToHMS(time/1000);
+        this.scoreboard.querySelector('#smoves').innerText = this.moves;
+        if(this.gameover) return;
         requestAnimationFrame((t)=>this.update(t));
     }
     timeToHMS(s){
@@ -213,27 +294,65 @@ class Game1{
     initGame(){
         var n = 4;
         this.size=4;
-        this.tiles = [];
+        this.tilesMap = [[]];
         var values = Array.from({length: n * n - 1}, (_, index) => index + 1);
         values = G.shuffleArray(values);
-        
         var cx = 0;
         var cy = 0;
-        
+        var cr = 0;
+        var cc = 0;
         for(let i = 0 ; i < values.length;i++){
             var val = values[i];
             var tile = new AnimatedTile(64,64,8,val);
-            tile.cx = cx;
-            tile.cy = cy;
-            cx += 64 + 4;
-            if((i+1) % 4 == 0){
-                cx = 0;
-                cy += 64 + 4;
+            this.tilesMap[cr][cc] = tile;
+            cc++;
+            if((cc) % 4 == 0){
+                cc=0;
+                cr++;
+                this.tilesMap[cr] = [];
             }
-            this.tiles.push(tile);
-
         }
-        console.log(this.tiles);
+        this.tilesMap[n-1][n-1] = null;
+        this.moves = 0;
+        this.time = 0;
+        this.gameover = false;
+    }
+    checkGameOver(){
+        var curval = 1;
+        for(let i = 0 ; i < this.tilesMap.length;i++){
+            for(let j = 0 ; j < this.tilesMap[i].length;j++){
+                var t = this.tilesMap[i][j];
+                if(t != null){
+                    if(t.value != curval) return false;
+                    curval++;
+                }
+                if(t == null && curval <= 15) return false;
+            }
+        }
+        if(curval < 15) return false;
+        this.gameover = true;
+        var gameoverlayout = `<div id=gameover>
+        <h1>Puzzle Completed</h1>
+        <table>
+            <tr><td>Time</td><td>${this.timeToHMS(this.time/1000)}</td></tr>
+            <tr><td>Moves</td><td>${this.moves}</td></tr>
+            <tr><td>Rank</td><td>${this.getLocalRank()}</td></tr>
+        </table>
+        <button id=newgame>New Game</button>
+        </div>
+        `;
+        gameoverlayout = DOM.makeDom(gameoverlayout);
+        gameoverlayout.querySelector('#newgame').onclick = ()=>{
+            this.windowresize();
+            this.prepGame();
+        }
+        this.layout.innerHTML = ``;
+        this.layout.append(gameoverlayout);
+        return true;
+    }
+    getLocalRank(){
+        var highscores = localStorage.getItem("gameHighScores");
+        return 1;
     }
 }
 document.addEventListener('DOMContentLoaded', function () {
