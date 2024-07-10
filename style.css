@@ -11,8 +11,11 @@ body, html {
 }
 #game{
     position: absolute;
-    top:20%;
+    /* top:20%; */
     text-align: center;
+}
+#headerboard{
+    width:100%;
 }
 #gameover{
     width: 300px;
