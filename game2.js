@@ -115,6 +115,63 @@ class G{
         }
         return array;
     }
+    static loadImage(url,attr,callback){
+        var img = new Image();
+        img.src = url;
+        if(attr) {
+            for(let i in attr){
+                img[i] = attr[i];
+            }
+        }
+        img.addEventListener('load',()=>{
+            callback(img);
+        });
+    }
+    static imgToCanvas(img){
+        var c = G.makeCanvas(img.width,img.height);
+        c.ctx.drawImage(img,0,0);
+        return c;
+    }
+    static prepForRotate(image){
+        let d = Math.sqrt( Math.pow(image.width,2)+Math.pow(image.height,2));
+        let buffer = G.makeCanvas(d,d);
+        buffer.ctx.drawImage(image,(d - image.width) /2,(d - image.height) /2);
+        
+        buffer.ctx.lineWidth = 4;
+        buffer.ctx.moveTo(0,0);
+        buffer.ctx.lineTo(d,0);
+        buffer.ctx.lineTo(d,d);
+        buffer.ctx.lineTo(0,d);
+        buffer.ctx.lineTo(0,0);
+        buffer.ctx.stroke();
+        return buffer;
+    }
+    static rotateCanvas(image,deg){
+        image = G.prepForRotate(image);
+        this.canvas = G.makeCanvas(image.width,image.height);
+        this.ctx = this.canvas.ctx;
+        this.ctx.save();
+        this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
+        if(deg != 0){
+            deg += 90;
+        }
+        this.ctx.rotate(deg * Math.PI / 180);
+        // this.ctx.rotate(deg);
+        this.ctx.drawImage(image, -image.width / 2, -image.height / 2);
+        this.ctx.restore();
+        return this.canvas;
+        if(times % 2 == 0){
+            context.setTransform(0,1,-1,0,image.width,0);
+            context.drawImage(image,0,0);
+            context.setTransform(1,0,0,1,0,0);
+            return rotateCW(buffer,times-2,passed+2);
+        }
+        else{
+            context.rotate(Math.PI/4);
+            context.drawImage(image,image.width/4,-image.height/2);
+            return rotateCW(buffer,times-1,passed++);
+        }
+    }
 }
 class DOM{
     static div(){
@@ -247,15 +304,22 @@ const color2 = '#fff';
 const color3 = '#fff';
 const color4 = '#fff';
 const color5 = '#000';
+const ImageUrl1 = 'Assets/Images/boss08.gif';
 class Game{
     constructor(c){
-        this.init(c);
+        G.loadImage(ImageUrl1,[],(img)=>{
+            this.sprite1 = G.imgToCanvas(img);
+            this.rotation = 0;
+            this.spriter = G.rotateCanvas(this.sprite1,this.rotation);
+            
+            this.init(c);
+        });
     }
     init(c){
         var canvasW = 64*8;
         var canvasH = 64*8;
         this.canvas = G.makeCanvas(canvasW,canvasH);
-
+        this.rotation = 0;
         this.canvasCenter = {
             x: this.canvas.width/2,
             y: this.canvas.height/2,
@@ -299,18 +363,34 @@ class Game{
     }
     applyClick(x,y){
         this.mousepos = {x:x,y:y};
-        
-        var line = Geometry.GetLineEquation(this.canvasCenter,this.mousepos);
-        document.getElementById('header1').innerHTML = `y = ${line.a}x + ${line.b}`;
+        let dx = x - this.canvasCenter.x;
+        let dy = y - this.canvasCenter.y;
 
+        // Calculate angle in radians
+        let angleRadians = Math.atan2(dy, dx);
+        this.rotation = angleRadians * 180/Math.PI;
+
+        document.getElementById('header1').innerHTML = `
+        <br> angleRadians = ${angleRadians}
+        <br> θ = ${this.rotation}∘
+        `;
+        this.spriter = G.rotateCanvas(this.sprite1,this.rotation);
+
+        return;
+
+        var line = Geometry.GetLineEquation(this.canvasCenter,this.mousepos);
+        var angle = Math.atan(line.a);
+
+        this.rotation = angle;
+        document.getElementById('header1').innerHTML = `
+        <br> y = ${line.a}x + ${line.b}
+        <br> θ = ${angle} = ${angle * 180/Math.PI}∘
+        `;
 
         this.intersections = Geometry.findSegmentCircleIntersections(this.canvasCenter,this.mousepos, this.canvasCenter, this.circle.width/2);
-        console.log(this.intersections);
-
         // line y = ax +b
         // segment pt1, pt2
         // circle (center,radius)
-
         this.intersections.forEach(pt=>{
             this.triangle = Geometry.Triangle(this.canvasCenter, pt, {
                 x: pt.x,
@@ -319,7 +399,6 @@ class Game{
             document.getElementById('gfooter').innerHTML = ``;
             document.getElementById('gfooter').append(this.triangle);
         })
-
 
     }
     update(time){
@@ -340,7 +419,6 @@ class Game{
         this.ctx.stroke();
 
         this.ctx.strokeStyle = "blue";
-        
         
         this.ctx.beginPath();
         this.ctx.moveTo(this.canvasCenter.x,this.canvasCenter.y);
@@ -373,6 +451,17 @@ class Game{
             });
         }
 
+        // this.ctx.save();
+        // this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
+        // this.ctx.rotate(this.rotation * Math.PI / 180);
+        // this.ctx.rotate(this.rotation);
+        // ctx.drawImage(img, -img.width / 2, -img.height / 2);
+        this.ctx.drawImage(
+            this.spriter,
+            this.canvasCenter.x - this.spriter.width/2 ,
+            this.canvasCenter.y - this.spriter.height/2 ,
+        );
+        // this.ctx.restore();
 
         requestAnimationFrame((t)=> this.update(t));
     }
