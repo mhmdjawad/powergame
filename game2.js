@@ -178,8 +178,7 @@ class Geometry{
         return intersections;
     }
     static Triangle(p1,p2,p3){
-        console.log(p1,p2,p3);
-
+        var padding = 30;
 
         var x1 = p1.x; var y1 = p1.y;
         var x2 = p2.x; var y2 = p2.y;
@@ -191,19 +190,54 @@ class Geometry{
         var miny = Math.min(y1,y2,y3);
         var maxy = Math.max(y1,y2,y3);
 
-        var s = G.makeCanvas(maxx - minx + 4 , maxy - miny + 4);
+        var s = G.makeCanvas(maxx - minx + padding , maxy - miny + padding);
         var ctx = s.ctx;
 
         ctx.beginPath();
-        ctx.moveTo(x1 - minx + 2 , y1 - miny + 2);
-        ctx.lineTo(x2 - minx + 2 , y2 - miny + 2);
-        ctx.lineTo(x3 - minx + 2 , y3 - miny + 2);
-        ctx.lineTo(x1 - minx + 2 , y1 - miny + 2);
+        ctx.moveTo(x1 - minx + padding/2 , y1 - miny + padding/2);
+        ctx.lineTo(x2 - minx + padding/2 , y2 - miny + padding/2);
+        ctx.lineTo(x3 - minx + padding/2 , y3 - miny + padding/2);
+        ctx.lineTo(x1 - minx + padding/2 , y1 - miny + padding/2);
         ctx.stroke();
+        
+
+        // label points
+
+        ctx.fillText('A', x1 - minx + padding/4,y1 - miny + padding/4 );
+        ctx.fillText('B', x2 - minx + padding/4,y2 - miny + padding/4 );
+        ctx.fillText('C', x3 - minx + padding/4,y3 - miny + padding/4 );
+
+        //draw Lengths 
+        var l12 = Geometry.getLength(p1,p2);
+        var l13 = Geometry.getLength(p1,p3);
+        var l23 = Geometry.getLength(p2,p3);
+
+        var mp12 = Geometry.getMidpoint(p1,p2);
+        var mp13 = Geometry.getMidpoint(p1,p3);
+        var mp23 = Geometry.getMidpoint(p2,p3);
+
+        ctx.fillText(l12, mp12.x - minx + padding/4,mp12.y - miny + padding/4);
+        ctx.fillText(l13, mp13.x - minx + padding/4,mp13.y - miny + padding/4);
+        ctx.fillText(l23, mp23.x - minx + padding/4,mp23.y - miny + padding/4);
+
+
+        
+
 
 
         return s;
 
+    }
+    static getMidpoint(p1,p2){
+        var x = (p1.x + p2.x)/2;
+        var y = (p1.y + p2.y)/2;
+        return {x:x,y:y};
+    }
+    static getLength(p1,p2){
+        var dx = p2.x - p1.x;
+        var dy = p2.y - p1.y;
+        var l = Math.sqrt(dx*dx + dy*dy);
+        return parseInt(l);
     }
 }
 
@@ -218,8 +252,8 @@ class Game{
         this.init(c);
     }
     init(c){
-        var canvasW = 64*12;
-        var canvasH = 64*12;
+        var canvasW = 64*8;
+        var canvasH = 64*8;
         this.canvas = G.makeCanvas(canvasW,canvasH);
 
         this.canvasCenter = {
