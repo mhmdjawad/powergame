@@ -302,20 +302,60 @@ class Geometry{
         }
     }
 }
+class TankBase{
+    constructor(){
+        this.center = {x:-Infinity, y:-Infinity};
+        this.sprite = Geometry.MakeCircle(32,null,'black');
+        this.rotation = 0;
+        this.power = 1;
+        this.speed = 1;
+        this.velocity = 0;
+        this.rotationvelocity = 0;
+        this.bullets = [];
+    }
+    updateBeam(){
+        this.beamDist = Geometry.movePointToward(this.center,this.rotation,100);
+    }
+}
+class Bullet{
+    constructor(source){
+        this.center = {
+            x:source.center.x,
+            y:source.center.y
+        };
+        this.rotation = source.rotation;
+        this.speed = source.speed+1;
+        this.distance = 0;
+        this.life = 1;
+        this.sprite = Geometry.MakeCircle(3,null,`red`);
+    }
+    update(){
+        this.center = Geometry.movePointToward(this.center,this.rotation,this.speed);
+        this.distance++;
 
+        if(this.distance > 100) this.life = 0;
+    }
+    draw(ctx){
+        ctx.drawImage(this.sprite,this.center.x - this.sprite.width/2, this.center.y - this.sprite.height);
+    }
+}
 class Player{
-    constructor(sprite){
+    constructor(sprite,pos){
         this.rotation = 0;
         this.sprite = sprite;
         this.spriteWithRotation = sprite;
-        this.center = {x:0 + sprite.width/2,y:0-sprite.height/2};
+        this.center = {
+            x:pos.x,
+            y:pos.y
+        };        this.power = 4;
+        this.speed = 4;
         this.velocity = 0;
         this.rotationvelocity = 0;
+        this.bullets=[];
         this.updateBeam();
     }
     updateBeam(){
         this.beamDist = Geometry.movePointToward(this.center,this.rotation,100);
-
     }
     rotateToward(pos){
         let dx = pos.x - this.center.x;
@@ -344,17 +384,28 @@ class Player{
         if(e.key.toLowerCase() == 'w'){
             this.velocity = 4;
         }
-        if(e.key.toLowerCase() == 's'){
+        else if(e.key.toLowerCase() == 's'){
             this.velocity = -4;
         }
-        if(e.key.toLowerCase() == 'd'){
+        else if(e.key.toLowerCase() == 'd'){
             this.rotationvelocity = 10;
         }
-        if(e.key.toLowerCase() == 'a'){
+        else if(e.key.toLowerCase() == 'a'){
             this.rotationvelocity = -10;
         }
+        else if(e.key == ' '){
+            if(this.bullets.length < 2)
+                this.bullets.push(new Bullet(this));
+        }
+        else{
+            console.log(e);
+        }
+        
     }
     update(){
+
+        this.bullets.forEach(x=>x.update());
+        this.bullets = this.bullets.filter(x=>x.life > 0);
         if(this.velocity != 0){
             this.center = Geometry.movePointToward(this.center,this.rotation,this.velocity);
             this.updateBeam();
@@ -372,9 +423,22 @@ class Player{
         ctx.moveTo(this.center.x,this.center.y);
         ctx.lineTo(this.beamDist.x,this.beamDist.y);
         ctx.stroke();
+        this.bullets.forEach(x=>x.draw(ctx));
     }
 }
 
+class TankAI{
+    constructor(pos){
+        this.center = {x:pos.x,y:pos.y};
+
+    }
+    update(){
+
+    }
+    draw(ctx){
+
+    }
+}
 const color1 = '#fff';
 const color2 = '#fff';
 const color3 = '#fff';
@@ -404,11 +468,8 @@ class Game{
         };
         this.circle = Geometry.MakeCircle(this.canvas.width/3,color5,null);
         this.cursor = Geometry.MakeCircle(3,null,`red`);
-        this.player = new Player(this.sprite1);
-        this.player.center = {x: 
-            this.canvas.width/2,
-            y: this.canvas.height/2
-        };
+        this.player = new Player(this.sprite1,this.canvasCenter);
+        
         this.canvas.style.border = "1px solid " + color5;
         this.ctx = this.canvas.getContext('2d');
         document.body.innerHTML = ``;
@@ -504,7 +565,7 @@ class Game{
             this.canvasCenter.y - this.circle.height/2,
         );
         
-        this.ctx.strokeStyle = "black";
+        /*this.ctx.strokeStyle = "black";
         this.ctx.beginPath();
         this.ctx.moveTo(this.canvasCenter.x,0);
         this.ctx.lineTo(this.canvasCenter.x,this.canvas.height);
@@ -512,18 +573,18 @@ class Game{
         this.ctx.moveTo(0,this.canvasCenter.y);
         this.ctx.lineTo(this.canvas.width,this.canvasCenter.y);
         this.ctx.stroke();
-
+        */
         
         
 
-        this.ctx.drawImage(
+        /*this.ctx.drawImage(
             this.cursor,
             this.mousepos.x - this.cursor.width/2,
             this.mousepos.y - this.cursor.height/2,
-        );
+        );*/
 
 
-        if(this.intersections){
+        /*if(this.intersections){
             this.intersections.forEach(pt=>{
                 this.ctx.drawImage(
                     this.cursor,
@@ -540,7 +601,7 @@ class Game{
                     this.canvasCenter.y - this.cursor.height/2,
                 );
             });
-        }
+        }*/
 
         // this.ctx.save();
         // this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
