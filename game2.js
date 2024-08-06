@@ -143,20 +143,16 @@ class G{
         buffer.ctx.lineTo(d,d);
         buffer.ctx.lineTo(0,d);
         buffer.ctx.lineTo(0,0);
-        buffer.ctx.stroke();
+        // buffer.ctx.stroke();
         return buffer;
     }
     static rotateCanvas(image,deg){
-        image = G.prepForRotate(image);
+        if(deg % 90 != 0) image = G.prepForRotate(image);
         this.canvas = G.makeCanvas(image.width,image.height);
         this.ctx = this.canvas.ctx;
         this.ctx.save();
         this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
-        if(deg != 0){
-            deg += 90;
-        }
         this.ctx.rotate(deg * Math.PI / 180);
-        // this.ctx.rotate(deg);
         this.ctx.drawImage(image, -image.width / 2, -image.height / 2);
         this.ctx.restore();
         return this.canvas;
@@ -296,8 +292,88 @@ class Geometry{
         var l = Math.sqrt(dx*dx + dy*dy);
         return parseInt(l);
     }
+    static movePointToward(pos,rotation,distance){
+        const rRad = rotation * (Math.PI / 180);
+        const vx = distance * Math.cos(rRad);
+        const vy = distance * Math.sin(rRad);
+        return {
+            x : pos.x + vx,
+            y : pos.y + vy
+        }
+    }
 }
 
+class Player{
+    constructor(sprite){
+        this.rotation = 0;
+        this.sprite = sprite;
+        this.spriteWithRotation = sprite;
+        this.center = {x:0 + sprite.width/2,y:0-sprite.height/2};
+        this.velocity = 0;
+        this.rotationvelocity = 0;
+        this.updateBeam();
+    }
+    updateBeam(){
+        this.beamDist = Geometry.movePointToward(this.center,this.rotation,100);
+
+    }
+    rotateToward(pos){
+        let dx = pos.x - this.center.x;
+        let dy = pos.y - this.center.y;
+        // Calculate angle in radians
+        let angleRadians = Math.atan2(dy, dx);
+        this.rotation = angleRadians * 180/Math.PI;
+        this.spriteWithRotation = G.rotateCanvas(this.sprite,this.rotation);
+        this.updateBeam();
+    }
+    keyup(e){
+        if(e.key.toLowerCase() == 'w'){
+            this.velocity = 0;
+        }
+        if(e.key.toLowerCase() == 's'){
+            this.velocity = 0;
+        }
+        if(e.key.toLowerCase() == 'd'){
+            this.rotationvelocity = 0;
+        }
+        if(e.key.toLowerCase() == 'a'){
+            this.rotationvelocity = -0;
+        }
+    }
+    keydown(e){
+        if(e.key.toLowerCase() == 'w'){
+            this.velocity = 4;
+        }
+        if(e.key.toLowerCase() == 's'){
+            this.velocity = -4;
+        }
+        if(e.key.toLowerCase() == 'd'){
+            this.rotationvelocity = 10;
+        }
+        if(e.key.toLowerCase() == 'a'){
+            this.rotationvelocity = -10;
+        }
+    }
+    update(){
+        if(this.velocity != 0){
+            this.center = Geometry.movePointToward(this.center,this.rotation,this.velocity);
+            this.updateBeam();
+        }
+        if(this.rotationvelocity != 0){
+            this.rotation += this.rotationvelocity;
+            this.spriteWithRotation = G.rotateCanvas(this.sprite,this.rotation);
+            this.updateBeam();
+        }
+    }
+    draw(ctx){
+        ctx.drawImage(this.spriteWithRotation,this.center.x - this.spriteWithRotation.width/2, this.center.y - this.spriteWithRotation.height/2);
+        ctx.strokeStyle = "blue";
+        ctx.beginPath();
+        ctx.moveTo(this.center.x,this.center.y);
+        ctx.lineTo(this.beamDist.x,this.beamDist.y);
+        ctx.stroke();
+    }
+}
 
 const color1 = '#fff';
 const color2 = '#fff';
@@ -308,14 +384,16 @@ const ImageUrl1 = 'Assets/Images/boss08.gif';
 class Game{
     constructor(c){
         G.loadImage(ImageUrl1,[],(img)=>{
-            this.sprite1 = G.imgToCanvas(img);
-            this.rotation = 0;
-            this.spriter = G.rotateCanvas(this.sprite1,this.rotation);
-            
-            this.init(c);
+            this.init(c,img);
         });
     }
-    init(c){
+    init(c,img){
+        // this.sprite1 = G.imgToCanvas(img);
+        this.sprite1 = G.rotateCanvas(img,90);
+        this.rotation = 0;
+        this.spriter = G.rotateCanvas(this.sprite1,this.rotation);
+
+
         var canvasW = 64*8;
         var canvasH = 64*8;
         this.canvas = G.makeCanvas(canvasW,canvasH);
@@ -326,8 +404,11 @@ class Game{
         };
         this.circle = Geometry.MakeCircle(this.canvas.width/3,color5,null);
         this.cursor = Geometry.MakeCircle(3,null,`red`);
-        document.body.append(this.cursor);
-
+        this.player = new Player(this.sprite1);
+        this.player.center = {x: 
+            this.canvas.width/2,
+            y: this.canvas.height/2
+        };
         this.canvas.style.border = "1px solid " + color5;
         this.ctx = this.canvas.getContext('2d');
         document.body.innerHTML = ``;
@@ -350,16 +431,30 @@ class Game{
         return table;
     }
     MakeEventListeners(){
-        this.canvas.addEventListener('click',(e)=>{
-            var rect = this.canvas.getBoundingClientRect();
+
+        this.canvas.addEventListener('mousemove',(e)=>{
+            /*var rect = this.canvas.getBoundingClientRect();
             var x = e.clientX - rect.left + window.scrollX;
             var y = e.clientY - rect.top + window.scrollY;
             x = Math.floor(x);
             y = Math.floor(y);
-            // var j = Math.floor(x / 66);
-            // var i = Math.floor(y / 66);
-            this.applyClick(x,y);
+            this.applyClick(x,y);*/
         });
+        this.canvas.addEventListener('click',(e)=>{
+            // var rect = this.canvas.getBoundingClientRect();
+            // var x = e.clientX - rect.left + window.scrollX;
+            // var y = e.clientY - rect.top + window.scrollY;
+            // x = Math.floor(x);
+            // y = Math.floor(y);
+            // this.applyClick(x,y);
+        });
+        document.body.addEventListener('keydown',e=>{
+            this.player.keydown(e);
+        })
+        document.body.addEventListener('keyup',e=>{
+            this.player.keyup(e);
+        })
+
     }
     applyClick(x,y){
         this.mousepos = {x:x,y:y};
@@ -374,8 +469,8 @@ class Game{
         <br> angleRadians = ${angleRadians}
         <br> θ = ${this.rotation}∘
         `;
-        this.spriter = G.rotateCanvas(this.sprite1,this.rotation);
-
+        this.player.rotateToward({x:x,y:y});
+        // this.spriter = G.rotateCanvas(this.sprite1,this.rotation);
         return;
 
         var line = Geometry.GetLineEquation(this.canvasCenter,this.mousepos);
@@ -418,12 +513,8 @@ class Game{
         this.ctx.lineTo(this.canvas.width,this.canvasCenter.y);
         this.ctx.stroke();
 
-        this.ctx.strokeStyle = "blue";
         
-        this.ctx.beginPath();
-        this.ctx.moveTo(this.canvasCenter.x,this.canvasCenter.y);
-        this.ctx.lineTo(this.mousepos.x,this.mousepos.y);
-        this.ctx.stroke();
+        
 
         this.ctx.drawImage(
             this.cursor,
@@ -456,11 +547,13 @@ class Game{
         // this.ctx.rotate(this.rotation * Math.PI / 180);
         // this.ctx.rotate(this.rotation);
         // ctx.drawImage(img, -img.width / 2, -img.height / 2);
-        this.ctx.drawImage(
+        /*this.ctx.drawImage(
             this.spriter,
             this.canvasCenter.x - this.spriter.width/2 ,
             this.canvasCenter.y - this.spriter.height/2 ,
-        );
+        );*/
+        this.player.update(time);
+        this.player.draw(this.ctx);
         // this.ctx.restore();
 
         requestAnimationFrame((t)=> this.update(t));
