@@ -78,6 +78,20 @@ class G{
 
         return canvas;
     }
+    static randomPattern(color1,color2,bias = 0.3){
+        var canvas = G.makeCanvas(8,8);
+        var ctx = canvas.ctx;
+        ctx.fillStyle = color1;
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.fillStyle = color2;
+        for(let i = 0 ; i < 8 ; i ++){
+            for(let j = 0 ; j < 8 ; j++){
+                if(Math.random() < bias)
+                    ctx.fillRect(i,j,1,1);
+            }
+        }
+        return canvas;
+    }
     static gridToFull(c,w,h,border = null, bg=null){
         var b = G.makeCanvas(w,h);
         var cw = c.width;
@@ -101,8 +115,21 @@ class G{
     static merge(list,w,h){
         var c = G.makeCanvas(w,h);
         for(let i in list){
-            c.ctx.drawImage(list[i],0,0);
+            c.ctx.drawImage(list[i],
+                0,
+                0
+            );
         }
+        return c;
+    }
+    static mergeCentered(list,w,h){
+        var c = G.makeCanvas(w,h);
+        list.forEach(img => {
+            // Calculate the position to center the image on the canvas
+            const x = (w - img.width) / 2;
+            const y = (h - img.height) / 2;
+            c.ctx.drawImage(img, x, y);
+        });
         return c;
     }
     static rand (a=1, b=0){ return b + (a-b)*Math.random();}
@@ -167,6 +194,21 @@ class G{
             context.drawImage(image,image.width/4,-image.height/2);
             return rotateCW(buffer,times-1,passed++);
         }
+    }
+    static getVertex(center,radius,sides,index) {
+        var angle = 2 * Math.PI / sides * index;
+        var x = center.x + radius * Math.cos(angle);
+        var y = center.y + radius * Math.sin(angle);
+        return {x,y};
+    }
+    static rotatePoint(center, point, angle) {
+        if(angle == 0) return point;
+        const cosA = Math.cos(angle);
+        const sinA = Math.sin(angle);
+        return {
+            x: center.x + (point.x - center.x) * cosA - (point.y - center.x) * sinA,
+            y: center.y + (point.x - center.y) * sinA + (point.y - center.y) * cosA
+        };
     }
 }
 class DOM{
@@ -301,6 +343,79 @@ class Geometry{
             y : pos.y + vy
         }
     }
+    static MakePolygon(radius,numPoints=8, rotated = false, stroke = '#000', fill = '#fff') {
+        var size = radius * 4;
+        var canvas = G.makeCanvas(size,size);
+        var ctx = canvas.getContext('2d');
+        var center = {
+            x : canvas.width / 2,
+            y : canvas.height / 2
+        }
+        var distToSide = radius / Math.cos(Math.PI / numPoints);
+        var rotation = rotated ? Math.PI/numPoints : rotated;
+        radius = rotated ? distToSide : radius;
+        var points = [];
+        for(let i = 0 ; i < numPoints; i++){
+            var vertex = G.getVertex(center,radius,numPoints,i);
+            vertex = G.rotatePoint(center,vertex, rotation);
+            points.push(vertex);
+        }
+        ctx.beginPath();
+        ctx.moveTo(points[0].x,points[0].y);
+        for(let i = 0 ;i < numPoints;i++){
+            var pt = points[i];
+            ctx.lineTo(pt.x,pt.y);
+        }
+        ctx.lineTo(points[0].x,points[0].y);
+        ctx.closePath();
+        if(stroke != null){
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = stroke;
+            ctx.stroke();
+        }
+        if(fill != null){
+            ctx.fillStyle = fill;
+            ctx.fill();
+        }
+        return canvas;
+    }
+    static PolyGrid(cellSize, rows, cols){
+        // document.body.innerHTML = ``;
+        var dsesert = G.randomPattern('#d09700','#509e26',0.3);
+        var grass = G.randomPattern('#2d7d00','#509e26',0.3);
+        var dirt = G.randomPattern('#924200','#3d1c00',0.1);
+        var water = G.randomPattern('#21bffff0','#2867ff',0.1);
+        var poly2 = Geometry.MakePolygon(cellSize,6,true, null,'#fff');
+        var poly_dsesert = G.fuseImage(poly2,dsesert);
+        var poly_grass = G.fuseImage(poly2,grass);
+        var poly_dirt = G.fuseImage(poly2,dirt);
+        var poly_water = G.fuseImage(poly2,water);
+        var sprites = [poly_dsesert,poly_grass,poly_dirt,poly_water];
+        sprites.forEach(x=>{
+            // document.body.append(x);
+        })
+        var canvas = G.makeCanvas(cellSize * rows, cellSize * cols);
+        var ctx = canvas.getContext('2d');
+        var x = 0, y = 0;
+        for(let i = 0 ; i < rows; i++){
+            x = i % 2 == 0 ? 0 : cellSize;
+            x-=1;
+            for(let j = 0 ; j < cols  ; j++){
+                // var s = Math.random() > 0.5 ? pd : pg;
+                var s = sprites[G.randInt(0,sprites.length)];
+                ctx.drawImage(
+                    s,
+                    x - s.width/2,
+                    y - s.height/2
+                );
+                x += cellSize*2;
+            }
+            y+= cellSize*2*Math.cos(Math.PI / 6);
+            y-=1;
+        }
+        // document.body.append(canvas);
+        return canvas;
+    }
 }
 class TankBase{
     constructor(){
@@ -347,7 +462,8 @@ class Player{
         this.center = {
             x:pos.x,
             y:pos.y
-        };        this.power = 4;
+        };
+        this.power = 4;
         this.speed = 4;
         this.velocity = 0;
         this.rotationvelocity = 0;
@@ -457,6 +573,7 @@ class Game{
         this.rotation = 0;
         this.spriter = G.rotateCanvas(this.sprite1,this.rotation);
 
+        this.polygrid = Geometry.PolyGrid(32,100,100);
 
         var canvasW = 64*8;
         var canvasH = 64*8;
@@ -466,6 +583,12 @@ class Game{
             x: this.canvas.width/2,
             y: this.canvas.height/2,
         };
+
+        this.camera = {
+            x: this.canvas.width/2,
+            y: this.canvas.height/2
+        };
+
         this.circle = Geometry.MakeCircle(this.canvas.width/3,color5,null);
         this.cursor = Geometry.MakeCircle(3,null,`red`);
         this.player = new Player(this.sprite1,this.canvasCenter);
@@ -559,6 +682,14 @@ class Game{
     }
     update(time){
         this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+
+        this.ctx.drawImage(
+            this.polygrid,
+            0,
+            0
+        );
+
+
         this.ctx.drawImage(
             this.circle,
             this.canvasCenter.x - this.circle.width/2,

@@ -1,9 +1,31 @@
+:root{
+    –main-white: #f0f0f0;
+    -brick-main : #924200;
+    -brick-second : #3d1c00;
+    -grass-main : #2d7d00;
+    -grass-second : #509e26;
+    -water-main:#21bffff0;
+    -water-second :#2867ff;
+    -desert-main : #d09700;
+    -desert-second : #b88600;
+    -ocean-main:#fff;
+    -ocean-second:#fff;
+    -dirt-main:#fff;
+    -dirt-second:#fff;
+    -dialog-main:#fff;
+    -dialog-second:#fff;
+}
+
+
 body, html {
-    height: 100%;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    /* height: 100%; */
+    /* margin: 0; */
+    /* display: flex; */
+    /* align-items: center; */
+    /* justify-content: center; */
+}
+*{
+    /* border:1px solid black; */
 }
 #sboard{
     font-weight:bold;
