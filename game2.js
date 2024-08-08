@@ -62,36 +62,6 @@ class G{
         // const base64Image = canvas.toDataURL();
         // document.body.style.backgroundImage = `url(${base64Image})`;
     }
-    static brickPattern(color1 = "#fff",color2 = "#000"){
-        var canvas = G.makeCanvas(8,8);
-        var ctx = canvas.ctx;
-
-        ctx.fillStyle = color1;
-        ctx.fillRect(0,0,canvas.width,canvas.height);
-
-        ctx.fillStyle = color2;
-
-        ctx.fillRect(7,0,1,4);
-        ctx.fillRect(0,3,8,1);
-        ctx.fillRect(4,4,1,4);
-        ctx.fillRect(0,7,8,1);
-
-        return canvas;
-    }
-    static randomPattern(color1,color2,bias = 0.3){
-        var canvas = G.makeCanvas(8,8);
-        var ctx = canvas.ctx;
-        ctx.fillStyle = color1;
-        ctx.fillRect(0,0,canvas.width,canvas.height);
-        ctx.fillStyle = color2;
-        for(let i = 0 ; i < 8 ; i ++){
-            for(let j = 0 ; j < 8 ; j++){
-                if(Math.random() < bias)
-                    ctx.fillRect(i,j,1,1);
-            }
-        }
-        return canvas;
-    }
     static gridToFull(c,w,h,border = null, bg=null){
         var b = G.makeCanvas(w,h);
         var cw = c.width;
@@ -111,6 +81,55 @@ class G{
             }
         }
         return b;
+    }
+    static fullGridBg(color1 = "lightgrey",color2 = null, scale = 8,w = 1,h = 1,border = null, bg=null){
+        var c = G.gridBG(color1,color2,scale,1);
+        return G.gridToFull(c,w,h,border,bg);
+    }
+    static repeatCanvas(canvas,r,c=0){
+        if(c == 0 ) c = r;
+        var buffer = G.makeCanvas(canvas.width * c, canvas.height*r);
+            for(let i = 0 ; i < r;i++){
+                for(let j = 0 ; j < c;j++){
+                    buffer.ctx.drawImage(canvas, j*canvas.width, i*canvas.height);
+                }
+            }
+            return buffer;
+    }
+    static brickPattern(color1 = "#fff",color2 = "#000", r = 1){
+        var canvas = G.makeCanvas(8,8);
+        var ctx = canvas.ctx;
+        ctx.fillStyle = color1;
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.fillStyle = color2;
+        ctx.fillRect(7,0,1,4);
+        ctx.fillRect(0,3,8,1);
+        ctx.fillRect(4,4,1,4);
+        ctx.fillRect(0,7,8,1);
+        if(r > 1){
+            return G.repeatCanvas(canvas,r,r);
+        }
+        return canvas;
+    }
+    static randomPattern(color1,color2,bias = 0.3,w=8,h=8){
+        var canvas = G.makeCanvas(w,h);
+        var ctx = canvas.ctx;
+        ctx.fillStyle = color1;
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.fillStyle = color2;
+        for(let i = 0 ; i < h ; i ++){
+            for(let j = 0 ; j < w ; j++){
+                if(Math.random() < bias) ctx.fillRect(i,j,1,1);
+            }
+        }
+        return canvas;
+    }
+    static getDistance(p1,p2){
+        let distance = 0;
+        distance += Math.pow((p1.x - p2.x), 2);
+        distance += Math.pow((p1.y - p2.y), 2);
+        distance = Math.sqrt(distance);
+        return distance;
     }
     static merge(list,w,h){
         var c = G.makeCanvas(w,h);
@@ -210,6 +229,61 @@ class G{
             y: center.y + (point.x - center.y) * sinA + (point.y - center.y) * cosA
         };
     }
+    static getColor(r, g, b, a){
+        if(r+g+b+a == 0){return null;}
+        else if(r+g+b == 0){return '#000000';}
+        else if (r > 255 || g > 255 || b > 255){return '#000000';}
+        return '#' + ((r << 16) + (g << 8) + b).toString(16).padStart(6, '0');
+    }
+    static getColorMatrix (canvas,changefct){
+        var context = canvas.getContext('2d');
+        var width = canvas.width;
+        var height = canvas.height;
+        var imageData = context.getImageData(0, 0, width, height);
+        var data = imageData.data;
+        var colorMatrix = [];
+        for (var i = 0; i < data.length; i += 4) {
+            colorMatrix.push(
+                G.getColor(
+                    data[i],
+                    data[i + 1],
+                    data[i + 2],
+                    data[i + 3]
+                    )
+                );
+        }
+        var matrix = [];
+        for(let i = 0 ; i < canvas.height;i++){matrix[i] = [];}
+        let c = 0, r = 0;
+        for(let i = 0 ; i < colorMatrix.length;i++){
+            if(c >= canvas.width){r++;c=0}
+            matrix[r][c] = colorMatrix[i];
+            if(changefct) matrix[r][c] = changefct(matrix[r][c]);
+            c++;
+        }
+        return matrix;
+    }
+    static colorsMatrixToSprite(matrix,scale = 1,deform = null){
+        let height = matrix.length;
+        let width = Math.max(...matrix.map((row)=> row.length));
+        var buffer = G.makeCanvas(width * scale,height* scale);
+        var ctx = buffer.ctx;
+        for(let i = 0 ; i < height;i++){
+            for(let j = 0 ; j < width;j++){
+                var color = matrix[i][j];
+                if(deform) color = deform(color);
+                if(!color || color == '') continue;
+                ctx.fillStyle = color;
+                ctx.fillRect(j*scale,i*scale,scale,scale);
+            }
+        }
+        return buffer;
+    }
+    static crop(canvas,x,y,width,height){
+        let buffer = G.makeCanvas(width,height);
+        buffer.ctx.drawImage(canvas,x,y,width,height,0,0,width,height);
+        return buffer;
+    }
 }
 class DOM{
     static div(){
@@ -226,6 +300,37 @@ class DOM{
         h.innerHTML = html;
         return h.firstChild;
     }
+}
+class SpriteSheet{
+    constructor(img){
+        var imgCanvas = G.imgToCanvas(img);
+        var mat = G.getColorMatrix(imgCanvas,(r)=>{
+            if(r == '') return null;
+            if(r == '#fff') return null;
+            if(r == '#ffffff') return null;
+            return r;
+        });
+        var cvs = G.colorsMatrixToSprite(mat,1);
+        var gridBg = G.gridBG('#fff',null,32,1);
+        var fullBg = G.gridToFull(gridBg,cvs.width,cvs.height);
+        var combined = G.merge([fullBg,cvs],cvs.width,cvs.height);
+
+        this.greyTanks = [];
+        for(let i = 0 ; i < 6 ; i++){
+            this.greyTanks.push(G.crop(cvs,i*32,64,32,32));
+        }
+        this.yellowTanks = [];
+        for(let i = 0 ; i < 6 ; i++){
+            this.yellowTanks.push(G.crop(cvs,i*32,96,32,32));
+        }
+        // this.greyTanks.forEach(x=>{document.body.append(x);})
+        // this.yellowTanks.forEach(x=>{document.body.append(x);})
+        // document.body.append(combined);
+    }
+    getTank(level){
+       return this.greyTanks[level]; 
+    }
+
 }
 class Geometry{
 
@@ -381,10 +486,10 @@ class Geometry{
     }
     static PolyGrid(cellSize, rows, cols){
         // document.body.innerHTML = ``;
-        var dsesert = G.randomPattern('#d09700','#509e26',0.3);
-        var grass = G.randomPattern('#2d7d00','#509e26',0.3);
-        var dirt = G.randomPattern('#924200','#3d1c00',0.1);
-        var water = G.randomPattern('#21bffff0','#2867ff',0.1);
+        var dsesert = G.randomPattern('#d09700','#509e26',0.01,cellSize,cellSize);
+        var grass = G.randomPattern('#2d7d00','#509e26',0.1,cellSize,cellSize);
+        var dirt = G.randomPattern('#924200','#3d1c00',0.01,cellSize,cellSize);
+        var water = G.randomPattern('#21bffff0','#2867ff',0.01,cellSize,cellSize);
         var poly2 = Geometry.MakePolygon(cellSize,6,true, null,'#fff');
         var poly_dsesert = G.fuseImage(poly2,dsesert);
         var poly_grass = G.fuseImage(poly2,grass);
@@ -419,7 +524,7 @@ class Geometry{
 }
 class TankBase{
     constructor(){
-        this.center = {x:-Infinity, y:-Infinity};
+        this.pos = {x:-Infinity, y:-Infinity};
         this.sprite = Geometry.MakeCircle(32,null,'black');
         this.rotation = 0;
         this.power = 1;
@@ -429,14 +534,14 @@ class TankBase{
         this.bullets = [];
     }
     updateBeam(){
-        this.beamDist = Geometry.movePointToward(this.center,this.rotation,100);
+        this.beamDist = Geometry.movePointToward(this.pos,this.rotation,100);
     }
 }
 class Bullet{
     constructor(source){
-        this.center = {
-            x:source.center.x,
-            y:source.center.y
+        this.pos = {
+            x:source.pos.x,
+            y:source.pos.y
         };
         this.rotation = source.rotation;
         this.speed = source.speed+1;
@@ -445,21 +550,46 @@ class Bullet{
         this.sprite = Geometry.MakeCircle(3,null,`red`);
     }
     update(){
-        this.center = Geometry.movePointToward(this.center,this.rotation,this.speed);
+        this.pos = Geometry.movePointToward(this.pos,this.rotation,this.speed);
         this.distance++;
-
-        if(this.distance > 100) this.life = 0;
+        if(this.distance > 25) this.life = 0;
     }
     draw(ctx){
-        ctx.drawImage(this.sprite,this.center.x - this.sprite.width/2, this.center.y - this.sprite.height);
+        ctx.drawImage(this.sprite,this.pos.x - this.sprite.width/2, this.pos.y - this.sprite.height);
+    }
+}
+class Wall{
+    constructor(game,pos){
+        this.pos = {x:pos.x,y:pos.y};
+        this.game = game;
+        this.life = 1;
+        this.sprite = G.brickPattern("#fff","#000",2);
+        //check if it intersect other objects
+        var ol = false;
+
+        var nearby = this.game.objects.filter(x=> G.getDistance(x.pos,this.pos) <= x.sprite.width * 1.4 / 2);
+        console.log(nearby);
+        if(nearby.length == 0){
+            this.game.objects.push(this);
+        }
+    }
+    draw(ctx){
+        ctx.drawImage(this.sprite,this.pos.x - this.sprite.width/2, this.pos.y - this.sprite.height/2);
+    }
+    overlap(p2){
+        //distance to center less than hitbox
+        var distance = G.getDistance(this.pos,p2);
+        return distance <= this.sprite.width/2;
     }
 }
 class Player{
-    constructor(sprite,pos){
+    constructor(game,sprite,pos){
+        this.game = game;
         this.rotation = 0;
+        this.life = 5;
         this.sprite = sprite;
         this.spriteWithRotation = sprite;
-        this.center = {
+        this.pos = {
             x:pos.x,
             y:pos.y
         };
@@ -468,14 +598,31 @@ class Player{
         this.velocity = 0;
         this.rotationvelocity = 0;
         this.bullets=[];
+        this.buildMode = false;
+        this.gridBuildMode = G.fullGridBg('#fff',null,16,16*9,16*9,'#fff');
         this.updateBeam();
+        this.game.objects.push(this);
+
+        this.debuff = {
+            current : {
+                move : 10,
+                rotate : 10,
+                fire : 10,
+            },
+            max:{
+                move : 10,
+                rotate : 10,
+                fire:10
+            }
+        }
+
     }
     updateBeam(){
-        this.beamDist = Geometry.movePointToward(this.center,this.rotation,100);
+        this.beamDist = Geometry.movePointToward(this.pos,this.rotation,100);
     }
     rotateToward(pos){
-        let dx = pos.x - this.center.x;
-        let dy = pos.y - this.center.y;
+        let dx = pos.x - this.pos.x;
+        let dy = pos.y - this.pos.y;
         // Calculate angle in radians
         let angleRadians = Math.atan2(dy, dx);
         this.rotation = angleRadians * 180/Math.PI;
@@ -497,6 +644,9 @@ class Player{
         }
     }
     keydown(e){
+        if(e.key.toLowerCase() == 'b'){
+            this.buildMode = true;
+        }
         if(e.key.toLowerCase() == 'w'){
             this.velocity = 4;
         }
@@ -504,14 +654,15 @@ class Player{
             this.velocity = -4;
         }
         else if(e.key.toLowerCase() == 'd'){
-            this.rotationvelocity = 10;
+            this.rotationvelocity = 15;
         }
         else if(e.key.toLowerCase() == 'a'){
-            this.rotationvelocity = -10;
+            this.rotationvelocity = -15;
         }
         else if(e.key == ' '){
-            if(this.bullets.length < 2)
+            if(this.bullets.length < 2 && this.debuff.current.fire >= this.debuff.max.fire)
                 this.bullets.push(new Bullet(this));
+                this.debuff.current.fire=0;
         }
         else{
             console.log(e);
@@ -519,33 +670,80 @@ class Player{
         
     }
     update(){
-
+        Object.keys(this.debuff.current).forEach(key => {this.debuff.current[key] += 1;});
         this.bullets.forEach(x=>x.update());
         this.bullets = this.bullets.filter(x=>x.life > 0);
         if(this.velocity != 0){
-            this.center = Geometry.movePointToward(this.center,this.rotation,this.velocity);
+            this.pos = Geometry.movePointToward(this.pos,this.rotation,this.velocity);
             this.updateBeam();
         }
-        if(this.rotationvelocity != 0){
+        if(this.debuff.current.rotate >= this.debuff.max.rotate && this.rotationvelocity != 0){
             this.rotation += this.rotationvelocity;
             this.spriteWithRotation = G.rotateCanvas(this.sprite,this.rotation);
             this.updateBeam();
+            this.debuff.current.rotate=0;
+        }
+    }
+    applyClick(x,y){
+        if(this.buildMode){
+            console.log(x,y);
+            //normalize x,y
+            var pos = this.normalizeMousePos(this.pos,x,y)
+            if(pos != null){
+                var wall = new Wall(this.game,pos);
+            }
         }
     }
     draw(ctx){
-        ctx.drawImage(this.spriteWithRotation,this.center.x - this.spriteWithRotation.width/2, this.center.y - this.spriteWithRotation.height/2);
+        ctx.drawImage(this.spriteWithRotation,this.pos.x - this.spriteWithRotation.width/2, this.pos.y - this.spriteWithRotation.height/2);
         ctx.strokeStyle = "blue";
         ctx.beginPath();
-        ctx.moveTo(this.center.x,this.center.y);
+        ctx.moveTo(this.pos.x,this.pos.y);
         ctx.lineTo(this.beamDist.x,this.beamDist.y);
         ctx.stroke();
         this.bullets.forEach(x=>x.draw(ctx));
+        if(this.buildMode){
+            ctx.drawImage(this.gridBuildMode,this.pos.x - this.gridBuildMode.width/2, this.pos.y - this.gridBuildMode.height/2);
+        }
+    }
+    normalizeMousePos(pos, mouseX, mouseY) {
+        var playerCenterX = pos.x;
+        var playerCenterY = pos.y;
+        const gridSize = 16; // Size of each grid cell in pixels
+        const gridRadius = 4; // Radius of the grid (4 cells in each direction from center)
+        // Calculate the top-left corner of the build area
+        const buildAreaLeft = playerCenterX - gridSize * gridRadius;
+        const buildAreaTop = playerCenterY - gridSize * gridRadius;
+        // Check if the mouse click is inside the build area
+        if (mouseX < buildAreaLeft || mouseX >= buildAreaLeft + gridSize * 9 ||
+            mouseY < buildAreaTop || mouseY >= buildAreaTop + gridSize * 9) {
+            return null; // Mouse click is outside the build area
+        }
+        // Calculate the mouse position relative to the build area
+        const relativeMouseX = mouseX - buildAreaLeft;
+        const relativeMouseY = mouseY - buildAreaTop;
+        // Determine the grid cell index
+        const cellX = Math.floor(relativeMouseX / gridSize);
+        const cellY = Math.floor(relativeMouseY / gridSize);
+        // Ensure the cell indexes are within the 9x9 grid
+        if (cellX < 0 || cellX >= 9 || cellY < 0 || cellY >= 9) {
+            return null; // Mouse click is outside the valid grid cells
+        }
+        // Calculate the center of the grid cell
+        const centerX = buildAreaLeft + (cellX * gridSize) + (gridSize / 2);
+        const centerY = buildAreaTop + (cellY * gridSize) + (gridSize / 2);
+        return { x: centerX, y: centerY };
+    }
+    overlap(p2){
+        //distance to center less than hitbox
+        var distance = G.getDistance(this.pos,p2);
+        return distance <= this.sprite.width/2;
     }
 }
 
 class TankAI{
     constructor(pos){
-        this.center = {x:pos.x,y:pos.y};
+        this.pos = {x:pos.x,y:pos.y};
 
     }
     update(){
@@ -561,38 +759,39 @@ const color3 = '#fff';
 const color4 = '#fff';
 const color5 = '#000';
 const ImageUrl1 = 'Assets/Images/boss08.gif';
+const SpriteSheet1 = 'Assets/Images/s1.gif';
+const SpriteSheet2 = 'Assets/Images/s2.gif';
+
 class Game{
     constructor(c){
-        G.loadImage(ImageUrl1,[],(img)=>{
-            this.init(c,img);
+        G.loadImage(SpriteSheet2,[],(img)=>{
+            this.SpriteSheet = new SpriteSheet(img);
+            var tank = this.SpriteSheet.getTank(3);
+            this.init(c,tank);
         });
     }
     init(c,img){
+        this.objects = [];
         // this.sprite1 = G.imgToCanvas(img);
         this.sprite1 = G.rotateCanvas(img,90);
         this.rotation = 0;
         this.spriter = G.rotateCanvas(this.sprite1,this.rotation);
-
         this.polygrid = Geometry.PolyGrid(32,100,100);
-
-        var canvasW = 64*8;
-        var canvasH = 64*8;
+        var canvasW = window.innerWidth*.97;
+        var canvasH = window.innerHeight*.97;
         this.canvas = G.makeCanvas(canvasW,canvasH);
         this.rotation = 0;
         this.canvasCenter = {
             x: this.canvas.width/2,
             y: this.canvas.height/2,
         };
-
         this.camera = {
             x: this.canvas.width/2,
             y: this.canvas.height/2
         };
-
         this.circle = Geometry.MakeCircle(this.canvas.width/3,color5,null);
         this.cursor = Geometry.MakeCircle(3,null,`red`);
-        this.player = new Player(this.sprite1,this.canvasCenter);
-        
+        this.player = new Player(this,this.sprite1,this.canvasCenter);
         this.canvas.style.border = "1px solid " + color5;
         this.ctx = this.canvas.getContext('2d');
         document.body.innerHTML = ``;
@@ -625,9 +824,11 @@ class Game{
             this.applyClick(x,y);*/
         });
         this.canvas.addEventListener('click',(e)=>{
-            // var rect = this.canvas.getBoundingClientRect();
-            // var x = e.clientX - rect.left + window.scrollX;
-            // var y = e.clientY - rect.top + window.scrollY;
+
+            var rect = this.canvas.getBoundingClientRect();
+            var x = e.clientX - rect.left + window.scrollX;
+            var y = e.clientY - rect.top + window.scrollY;
+            this.player.applyClick(x,y);
             // x = Math.floor(x);
             // y = Math.floor(y);
             // this.applyClick(x,y);
@@ -680,7 +881,7 @@ class Game{
         })
 
     }
-    update(time){
+    update(t){
         this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
 
         this.ctx.drawImage(
@@ -688,8 +889,6 @@ class Game{
             0,
             0
         );
-
-
         this.ctx.drawImage(
             this.circle,
             this.canvasCenter.x - this.circle.width/2,
@@ -733,7 +932,6 @@ class Game{
                 );
             });
         }*/
-
         // this.ctx.save();
         // this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
         // this.ctx.rotate(this.rotation * Math.PI / 180);
@@ -744,8 +942,11 @@ class Game{
             this.canvasCenter.x - this.spriter.width/2 ,
             this.canvasCenter.y - this.spriter.height/2 ,
         );*/
-        this.player.update(time);
-        this.player.draw(this.ctx);
+        this.objects = this.objects.filter(x=>x.life != 0);
+        this.objects.forEach(x=>{if(x.update) x.update(t);});
+        this.objects.forEach(x=>{if(x.draw) x.draw(this.ctx);});
+        // this.player.update(t);
+        // this.player.draw(this.ctx);
         // this.ctx.restore();
 
         requestAnimationFrame((t)=> this.update(t));
