@@ -537,8 +537,31 @@ class TankBase{
         this.beamDist = Geometry.movePointToward(this.pos,this.rotation,100);
     }
 }
+class BulletExplosion{
+    constructor(game,pos){
+        this.game = game;
+        this.pos = {x:pos.x,y:pos.y};
+        this.life = 1;
+        this.currentR = 0;
+        this.maxR = 5;
+        game.objects.push(this);
+    }
+    update(){
+        this.currentR++;
+        if(this.currentR > this.maxR){
+            this.life=0;
+        }
+    }
+    draw(ctx){
+        ctx.beginPath();
+        ctx.arc(this.pos.x,this.pos.y,this.currentR,0,Math.PI * 2,false);
+        ctx.fillStyle = `red`;
+        ctx.fill();
+    }
+}
 class Bullet{
     constructor(source){
+        this.source = source;
         this.pos = {
             x:source.pos.x,
             y:source.pos.y
@@ -551,11 +574,23 @@ class Bullet{
     }
     update(){
         this.pos = Geometry.movePointToward(this.pos,this.rotation,this.speed);
+        var nearby = this.source.game.objects.filter(x=> G.getDistance(x.pos,this.pos) <= x.sprite.width * 1.4 / 2);
+        nearby.forEach(x=>{
+            if(x != this.source){
+                x.life -= this.life;
+                this.life = 0;
+                delete(this);
+                new BulletExplosion(this.source.game,this.pos);
+            }
+        })
         this.distance++;
         if(this.distance > 25) this.life = 0;
     }
     draw(ctx){
-        ctx.drawImage(this.sprite,this.pos.x - this.sprite.width/2, this.pos.y - this.sprite.height);
+        ctx.drawImage(this.sprite,
+            this.pos.x - this.sprite.width/2, 
+            this.pos.y - this.sprite.height/2
+        );
     }
 }
 class Wall{
@@ -565,8 +600,6 @@ class Wall{
         this.life = 1;
         this.sprite = G.brickPattern("#fff","#000",2);
         //check if it intersect other objects
-        var ol = false;
-
         var nearby = this.game.objects.filter(x=> G.getDistance(x.pos,this.pos) <= x.sprite.width * 1.4 / 2);
         console.log(nearby);
         if(nearby.length == 0){
@@ -645,7 +678,7 @@ class Player{
     }
     keydown(e){
         if(e.key.toLowerCase() == 'b'){
-            this.buildMode = true;
+            this.buildMode = !this.buildMode;
         }
         if(e.key.toLowerCase() == 'w'){
             this.velocity = 4;
@@ -667,15 +700,18 @@ class Player{
         else{
             console.log(e);
         }
-        
     }
     update(){
         Object.keys(this.debuff.current).forEach(key => {this.debuff.current[key] += 1;});
         this.bullets.forEach(x=>x.update());
         this.bullets = this.bullets.filter(x=>x.life > 0);
         if(this.velocity != 0){
-            this.pos = Geometry.movePointToward(this.pos,this.rotation,this.velocity);
-            this.updateBeam();
+            var newpos = Geometry.movePointToward(this.pos,this.rotation,this.velocity);
+            var nearby = this.game.objects.filter(x=> x.sprite && G.getDistance(x.pos,newpos) <= x.sprite.width * 1.4 / 2);
+            if(nearby.length == 1){
+                this.pos = newpos;
+                this.updateBeam();
+            }
         }
         if(this.debuff.current.rotate >= this.debuff.max.rotate && this.rotationvelocity != 0){
             this.rotation += this.rotationvelocity;
@@ -712,8 +748,8 @@ class Player{
         const gridSize = 16; // Size of each grid cell in pixels
         const gridRadius = 4; // Radius of the grid (4 cells in each direction from center)
         // Calculate the top-left corner of the build area
-        const buildAreaLeft = playerCenterX - gridSize * gridRadius;
-        const buildAreaTop = playerCenterY - gridSize * gridRadius;
+        const buildAreaLeft = playerCenterX - gridSize * gridRadius - gridSize/2;
+        const buildAreaTop = playerCenterY - gridSize * gridRadius - gridSize/2;
         // Check if the mouse click is inside the build area
         if (mouseX < buildAreaLeft || mouseX >= buildAreaLeft + gridSize * 9 ||
             mouseY < buildAreaTop || mouseY >= buildAreaTop + gridSize * 9) {
